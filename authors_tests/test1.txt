@@ -1,0 +1,27 @@
+Teste com estrada de tamanho 10000, 100 estações de tamanho 1, e 50 onibus (10000 iterações, sequencial):
+
+  memory estimate:  2.67 GiB
+  allocs estimate:  10928938
+  --------------
+  minimum time:     13.406 s (1.04% GC)
+  median time:      14.814 s (1.00% GC)
+  mean time:        15.678 s (1.03% GC)
+  maximum time:     20.210 s (0.94% GC)
+  --------------
+  samples:          39
+  evals/sample:     1
+
+
+
+Teste com estrada de tamanho 10000, 100 estações de tamanho 1, e 500 onibus (10000 iterações, sequencial):
+
+  memory estimate:  310.79 MiB
+  allocs estimate:  1409426
+  --------------
+  minimum time:     4.436 s (0.31% GC)
+  median time:      4.664 s (0.26% GC)
+  mean time:        4.664 s (0.24% GC)
+  maximum time:     4.982 s (0.13% GC)
+  --------------
+  samples:          100
+  evals/sample:     1

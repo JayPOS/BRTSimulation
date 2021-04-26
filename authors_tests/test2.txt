@@ -1,0 +1,2 @@
+Teste com estrada de tamanho 1000, 10 estações de tamanho 1, 50 onibus, (10000 iterações, sequencial):
+
