@@ -17,24 +17,13 @@ function add_bus(map::Map, bus_queue::Vector{Bus}, route_mode::String) # add alw
 end
 
 function checking_possible_stop(map::Map, bus::Bus, new_speed::Int64)
-    # println("Checking Possible Stop:")
-    # show_info(map)
-    # println("Finished Checking")
-    # print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
     stations = map.stations
     road_size = size(map.road)[2]
     for station in stations
         if bus.route[station.id] == 1
             future_pos = new_speed + bus.actual_map_pos
-            # if future_pos >  road_size
-            #     # HAS TO USE PORTAL
-            #     future_pos -= road_size
-            # end
-            # IF COLOSION == YES
             if future_pos >= station.init_pos && (future_pos - new_speed) <= station.init_pos
                 new_speed -= (future_pos-station.init_pos)
-                # println("Colision Happened! BusID: $(bus.id) || Station hitted: $(station.id) ---> Located in: $(station.init_pos):$(station.ending_pos) ||
-                # New Speed Should be: $(new_speed) || Last Position: $(bus.actual_map_pos)")
                 return true, new_speed, station.id
             end
          end
@@ -54,15 +43,11 @@ function move_bus!(map::Map, ending_bus_queue::Vector{Bus})
         end
         if buses[id].flag == Constants.DRIVING
             next_pos = buses[id].actual_map_pos + buses[id].speed
-            # println(" HERE Pos: $(buses[id].actual_map_pos) Speed: $(buses[id].speed) BUSID: $(buses[id].id)")
             if next_pos > road_size # REMOVING BUS FROM ROAD AND ADDING IN ENDING_BUS_QUEUE
                 map.road[1, buses[id].actual_map_pos] = 0
                 reset!(buses[id])
                 push!(ending_bus_queue, popat!(map.buses, id))
-
                 continue
-
-                # println(" HERE NextPOS: $(next_pos)  roadSize: $(road_size)")
             end
             # CHECKING IF IT IS TIME TO STOP
             if buses[id].stop_at != -1 && map.stations[buses[id].stop_at].init_pos == buses[id].actual_map_pos
@@ -79,11 +64,46 @@ function move_bus!(map::Map, ending_bus_queue::Vector{Bus})
                 map.road[1, buses[id].actual_map_pos] = Constants.EMPTY
                 buses[id].actual_map_pos = next_pos
             else
-                # print_buses(map.buses)
-                # print_buses(buses)
                 @assert next_pos == buses[id].actual_map_pos "Target Position ($(next_pos)) not empty! || Bus_ID: $(buses[id].id) || Target is a $(copy_road[1,next_pos] == 1 ? "Bus" : "Station")"
-                # IF IT PRINTS THIS, IT MEANS SOMETHING WENT WRONG IN THE ALGORITHM (BUS IS TRYING TO MOVE TO AN OCCUPIED CELL)
-                # println("Target Position not empty! || Bus_ID: $(buses[id].id)")
+            end
+        end
+    end
+end
+
+function move_bus_parallel!(map::Map, ending_bus_queue::Vector{Bus})
+    road_size = size(map.road)[2]
+
+    copy_road = copy(map.road)
+    buses = map.buses
+
+    Threads.@threads for id in 1:length(buses)
+        if id > length(buses) 
+            break 
+        end
+        if buses[id].flag == Constants.DRIVING
+            next_pos = buses[id].actual_map_pos + buses[id].speed
+            if next_pos > road_size # REMOVING BUS FROM ROAD AND ADDING IN ENDING_BUS_QUEUE
+                map.road[1, buses[id].actual_map_pos] = 0
+                reset!(buses[id])
+                push!(ending_bus_queue, popat!(map.buses, id))
+                continue
+            end
+            # CHECKING IF IT IS TIME TO STOP
+            if buses[id].stop_at != -1 && map.stations[buses[id].stop_at].init_pos == buses[id].actual_map_pos
+                # CHECKING IF STATION HAS ANY FREE SLOTS
+                if length(map.stations[buses[id].stop_at].bus_slots) < Constants.MAX_SLOTS
+                    push!(map.stations[buses[id].stop_at].bus_slots, create_bus_slot(buses[id]))
+                    buses[id].stop_at = -1
+                    map.road[1,buses[id].actual_map_pos] = 0
+                    buses[id].flag = Constants.STOPPED
+                end
+            # IF IT IS NOT TIME TO STOP, THEN MOVE IF POSSIBLE, AND IF BUS IS NOT STOPPED
+            elseif copy_road[1,next_pos] == Constants.EMPTY && buses[id].flag == Constants.DRIVING
+                map.road[1, next_pos] = Constants.BUS
+                map.road[1, buses[id].actual_map_pos] = Constants.EMPTY
+                buses[id].actual_map_pos = next_pos
+            else
+                @assert next_pos == buses[id].actual_map_pos "Target Position ($(next_pos)) not empty! || Bus_ID: $(buses[id].id) || Target is a $(copy_road[1,next_pos] == 1 ? "Bus" : "Station")"
             end
         end
     end
@@ -92,96 +112,74 @@ end
 
 function calculating_next_speed(map::Map)
     buses = map.buses
-    sort!(buses)
+    # sort!(buses)
     road_size = size(map.road)[2]
-    new_speed = Constants.MAX_SPEED
-    for id in 1:length(buses)
+    id_next = -1
+    Threads.@threads for id in 1:length(buses)
         if buses[id].flag == Constants.LEAVING
             buses[id].speed = 0
-            # if buses[id].id == 2
-            #     println("passei aqui buses[id].flag == Constants.LEAVING")
-            # end
         end
         if buses[id].flag == Constants.DRIVING
-            if id != length(buses)
-                id_next = get_next_busId(buses, id+1)
-                # if buses[id].id == 2
-                #     println("passei aqui id != length(buses)")
-                #     println(buses[id])
-                #     println(buses[id+1])
-                # end
-                if id_next <= length(buses)
-                    next_bus_pos = buses[id_next].actual_map_pos
-                    new_speed = abs(next_bus_pos - buses[id].actual_map_pos)-1 
-                    new_speed = new_speed > Constants.MAX_SPEED ? Constants.MAX_SPEED : new_speed
-                    # if buses[id].id == 2
-                    #     println("passei aqui id_next <= length(buses)")
-                    # end
+            actual_pos = buses[id].actual_map_pos
+            new_speed = 0
+            while new_speed < Constants.MAX_SPEED
+                if actual_pos + new_speed+1 > size(map.road)[2]
+                    new_speed = Constants.MAX_SPEED
+                    break
+                elseif map.road[1, actual_pos + new_speed+1] != Constants.BUS
+                    new_speed += 1
+                else
+                    break
                 end
-            else
-                new_speed=Constants.MAX_SPEED
-                # if buses[id].id == 2
-                #     println("passei aqui id_next > length(buses)")
-                # end
+                # print("new speed $(new_speed)\n")
             end
             tuple = checking_possible_stop(map, buses[id], new_speed)
             if tuple[1] == true
                 new_speed = tuple[2]
                 buses[id].stop_at = tuple[3]
-                # if buses[id].id == 2
-                #     println("passei aqui tuple = checking_possible_stop(map, buses[id], new_speed) / tuple[1] == true")
-                # end
             end
             # checking if will pass over a station
             buses[id].speed = new_speed
+        end
+        if id_next != -1 && id_next <= length(buses)
+            @assert ((buses[id].actual_map_pos + new_speed) > buses[id_next].actual_map_pos) "Calculating speed wrongly! BUS ID: $(buses[id].id) | NEXT_POS (Estimated): $(buses[id].speed + buses[id].actual_map_pos) || Next POS ID: $(map.road[1, buses[id].speed + buses[id].actual_map_pos]) "
         end
     end
 end
 
 function calculating_next_speed_parallel(map::Map)
     buses = map.buses
-    sort!(buses)
+    # sort!(buses)
     road_size = size(map.road)[2]
-    new_speed = Constants.MAX_SPEED
+    id_next = -1
     Threads.@threads for id in 1:length(buses)
         if buses[id].flag == Constants.LEAVING
             buses[id].speed = 0
-            # if buses[id].id == 2
-            #     println("passei aqui buses[id].flag == Constants.LEAVING")
-            # end
         end
         if buses[id].flag == Constants.DRIVING
-            if id != length(buses)
-                id_next = get_next_busId(buses, id+1)
-                # if buses[id].id == 2
-                #     println("passei aqui id != length(buses)")
-                #     println(buses[id])
-                #     println(buses[id+1])
-                # end
-                if id_next <= length(buses)
-                    next_bus_pos = buses[id_next].actual_map_pos
-                    new_speed = abs(next_bus_pos - buses[id].actual_map_pos)-1 
-                    new_speed = new_speed > Constants.MAX_SPEED ? Constants.MAX_SPEED : new_speed
-                    # if buses[id].id == 2
-                    #     println("passei aqui id_next <= length(buses)")
-                    # end
+            actual_pos = buses[id].actual_map_pos
+            new_speed = 0
+            while new_speed < Constants.MAX_SPEED
+                if actual_pos + new_speed+1 > size(map.road)[2]
+                    new_speed = Constants.MAX_SPEED
+                    break
+                elseif map.road[1, actual_pos + new_speed+1] != Constants.BUS
+                    new_speed += 1
+                else
+                    break
                 end
-            else
-                new_speed=Constants.MAX_SPEED
-                # if buses[id].id == 2
-                #     println("passei aqui id_next > length(buses)")
-                # end
+                # print("new speed $(new_speed)\n")
             end
             tuple = checking_possible_stop(map, buses[id], new_speed)
             if tuple[1] == true
                 new_speed = tuple[2]
                 buses[id].stop_at = tuple[3]
-                # if buses[id].id == 2
-                #     println("passei aqui tuple = checking_possible_stop(map, buses[id], new_speed) / tuple[1] == true")
-                # end
             end
             # checking if will pass over a station
             buses[id].speed = new_speed
+        end
+        if id_next != -1 && id_next <= length(buses)
+            @assert ((buses[id].actual_map_pos + new_speed) > buses[id_next].actual_map_pos) "Calculating speed wrongly! BUS ID: $(buses[id].id) | NEXT_POS (Estimated): $(buses[id].speed + buses[id].actual_map_pos) || Next POS ID: $(map.road[1, buses[id].speed + buses[id].actual_map_pos]) "
         end
     end
 end
