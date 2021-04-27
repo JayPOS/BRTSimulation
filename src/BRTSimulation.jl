@@ -184,6 +184,40 @@ function calculating_next_speed_parallel(map::Map)
     end
 end
 
+function calculating_next_speed_parallel2(map::Map)
+    buses = map.buses
+    sort!(buses)
+    road_size = size(map.road)[2]
+    id_next = -1
+    Threads.@threads for id in 1:length(buses)
+        if buses[id].flag == Constants.LEAVING
+            buses[id].speed = 0
+        end
+        if buses[id].flag == Constants.DRIVING
+            id_next = get_next_busId(buses, id)
+            # Take out circular and add vector of buses to store idling buses
+            if id_next > id
+                next_bus_pos = buses[id_next].actual_map_pos
+                new_speed = abs(next_bus_pos - buses[id].actual_map_pos)-1 
+            elseif id_next != id
+                next_bus_pos = buses[id_next].actual_map_pos + size(map.road)[2]
+                new_speed = abs(next_bus_pos - buses[id].actual_map_pos) - 1 
+            end
+            new_speed = new_speed > Constants.MAX_SPEED ? Constants.MAX_SPEED : new_speed
+            tuple = checking_possible_stop(map, buses[id], new_speed)
+            if tuple[1] == true
+                new_speed = tuple[2]
+                buses[id].stop_at = tuple[3]
+            end
+            # checking if will pass over a station
+            buses[id].speed = new_speed
+        end
+        if id_next != -1 && id_next <= length(buses)
+            @assert ((buses[id].actual_map_pos + new_speed) > buses[id_next].actual_map_pos) "Calculating speed wrongly! BUS ID: $(buses[id].id) | NEXT_POS (Estimated): $(buses[id].speed + buses[id].actual_map_pos) || Next POS ID: $(map.road[1, buses[id].speed + buses[id].actual_map_pos]) "
+        end
+    end
+end
+
 function iteraction(map::Map,
             initial_bus_queue::Vector{Bus}, 
             ending_bus_queue::Vector{Bus},
@@ -214,6 +248,21 @@ move_bus!(map, ending_bus_queue)
 # print("\n\n\n")
 end
 
+function iteraction_parallel2(map::Map,
+    initial_bus_queue::Vector{Bus}, 
+    ending_bus_queue::Vector{Bus},
+    route_mode::String
+) 
+# show_info(map)
+# println("\n ---->  ||| Moving |||  <----\n")
+add_bus(map, initial_bus_queue, route_mode)
+update_station(map)
+calculating_next_speed_parallel2(map)
+move_bus!(map, ending_bus_queue)
+# show_info(map)
+# print("\n\n\n")
+end
+
 function run_Parallel(map::Map;num_iteration::Int64=100000, buses::Int64=7, route_mode::String="RANDOM")
     @assert buses < size(map.road)[2] "Number of buses should be less than length of road"
     counter = 0
@@ -224,6 +273,25 @@ function run_Parallel(map::Map;num_iteration::Int64=100000, buses::Int64=7, rout
         # run(`clear`)
         # println("Map:: \n")
         iteraction_parallel(map, initial_bus_queue, initial_bus_queue, route_mode)
+        # print("\n\n")
+        # println("Reverted Map:: \n")
+        # iteraction_parallel(reverted_map, ending_bus_queue, ending_bus_queue, route_mode)
+        # print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
+        # sleep(1)
+    end
+    # return reverted_map, initial_bus_queue, ending_bus_queue
+end
+
+function run_Parallel2(map::Map;num_iteration::Int64=100000, buses::Int64=7, route_mode::String="RANDOM")
+    @assert buses < size(map.road)[2] "Number of buses should be less than length of road"
+    counter = 0
+    initial_bus_queue = init_bus_queue(buses)
+    reverted_map = init_reverse(map)
+    ending_bus_queue = init_bus_queue(buses)
+    for counter in 1:num_iteration
+        # run(`clear`)
+        # println("Map:: \n")
+        iteraction_parallel2(map, initial_bus_queue, initial_bus_queue, route_mode)
         # print("\n\n")
         # println("Reverted Map:: \n")
         # iteraction_parallel(reverted_map, ending_bus_queue, ending_bus_queue, route_mode)

@@ -87,7 +87,7 @@ function create_routes(map::Map)
         map.routes = [map.routes; ones(Int8, 1,n_stations)]
     elseif map.route_mode == "RANDOM"
         for i in 1:Constants.MAX_ROUTES
-            map.routes = [map.routes; rand([0,1], 1,n_stations)]
+            push!(map.routes, rand([0,1], 1,n_stations))
         end
     end
 end
@@ -147,7 +147,7 @@ function update_station(map::Map)
             slot[1] -= 1 # Updating Cooldown
             if slot[1] <= 0 # Cooldown is over?
                 if can_leave_station(map, station)
-                    departing_buses = [departing_buses; slot[2]] #
+                    push!(departing_buses, slot[2]) #
                 end
             end
         end
@@ -207,7 +207,7 @@ end
 # AUXILIAR FUNCTIONS STARTS HERE
 
 function get_next_busId(buses::Vector{Bus}, id_next::Int64)
-    while id_next <= length(buses) && buses[id_next].flag != Constants.DRIVING
+    while id_next <= length(buses) && (buses[id_next].flag != Constants.DRIVING || buses[id_next].flag != Constants.LEAVING)
         id_next+=1
         # print("id_next: $(id_next) length(buses): $(length(buses)) || buses[id_next].flag: $(buses[id_next].flag)\n")
     end
