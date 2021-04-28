@@ -1,6 +1,7 @@
 include("./Bus.jl") # Has everything of buses
 
 mutable struct Map
+    previous_road::Vector{Int8}
     road::Matrix{Int8}
     stations::Vector{Station}
     buses::Vector{Bus}
@@ -9,6 +10,7 @@ mutable struct Map
 end
 
 init_map(road_size::Int64, route_mode::String) = Map(
+    zeros(road_size),
     zeros(road_size,2), 
     Vector{Station}(undef, 0), 
     Vector{Bus}(undef, 0),

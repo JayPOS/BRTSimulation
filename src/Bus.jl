@@ -29,7 +29,7 @@ struct EmptyCell <: Cell end
 mutable struct Bus <: Cell
     id::Int64
     speed::Int64 # Speed in actual iteration
-    flag::Int16
+    flag::Int8
     actual_map_pos::Int64
     route::Vector{Int8}
     stop_at::Int64 
@@ -40,7 +40,7 @@ mutable struct Station
     init_pos::Int64
     ending_pos::Int64
     bus_slots::Vector{Vector{Any}}
-    bus_cooldown::Int64
+    bus_cooldown::Int8
 end
 
 create_bus(id::Int64) =  Bus(id, 0, Constants.DRIVING, 1, Vector{Int8}(undef,0), -1)

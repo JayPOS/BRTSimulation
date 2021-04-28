@@ -1,0 +1,20 @@
+SEM TUPLA COM COPIA
+
+@time BRTSimulation.run_Parallel(map2, buses=10000, num_iteration=20000)
+ 39.451531 seconds (15.06 M allocations: 1.533 GiB, 0.82% gc time, 0.39% compilation time)
+
+
+
+
+COM TUPLA SEM COPIA
+
+@time BRTSimulation.run_Parallel(map2, buses=10000, num_iteration=20000)
+ 45.639040 seconds (15.31 M allocations: 836.867 MiB, 0.23% gc time)
+
+
+
+
+SEM TUPLA SEM COPIA
+
+@time BRTSimulation.run_Parallel(map2, buses=10000, num_iteration=20000)
+ 41.777182 seconds (15.49 M allocations: 847.381 MiB, 0.27% gc time, 0.48% compilation time)
