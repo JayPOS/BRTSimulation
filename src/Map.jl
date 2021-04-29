@@ -1,6 +1,6 @@
-include("./Bus.jl") # Has everything of buses
+ # Has everything of buses
 
-mutable struct Map
+ mutable struct Map
     previous_road::Vector{Int8}
     road::Matrix{Int8}
     stations::Vector{Station}
@@ -20,6 +20,7 @@ init_map(road_size::Int64, route_mode::String) = Map(
 
 # TAKE OUT ADD_STATIONS(MAP) AND USE PARAMETERS
 function init(;road_size::Int64, stations::Vector{Int64}=[2,10], station_size::Int64=3, route_mode::String="NORMAL")
+    @assert station_size <= 5 "Stations size can't be more than 5 cells"
     # TREATING INPUTS
     @assert length(stations)*station_size < road_size "No enough space in road for this number of stations"
     sort!(stations)
@@ -114,49 +115,18 @@ function define_route(bus::Bus, map::Map)
     end
 end
 
-function can_leave_station(map::Map, station::Station)
-    if map.road[1, station.ending_pos] == Constants.EMPTY
-        return true
-    end
-    return false
-end
-
-function departing_bus(station::Station, bus::Bus, road::Matrix{Int8})
-    for i in 1:length(station.bus_slots)
-        if i > length(station.bus_slots)
-            break
+function add_bus(map::Map, bus_queue::Vector{Bus}, route_mode::String) # add always in the beginning
+    if map.road[1,1] == Constants.EMPTY && length(bus_queue) > 0
+        new_bus = popat!(bus_queue, 1)
+        if length(new_bus.route) == 0
+            define_route(new_bus, map)
         end
-        if station.bus_slots[i][2].id == bus.id
-            bus.actual_map_pos = station.ending_pos
-            bus.flag = Constants.LEAVING
-            if road[1, bus.actual_map_pos] == Constants.EMPTY
-                bus.flag = Constants.DRIVING
-                road[1, bus.actual_map_pos] = Constants.BUS
-                deleteat!(station.bus_slots, i)
-            end
-        end
-    end
-    
-end
-
-
-function update_station(map::Map)
-    stations = map.stations
-    for station in stations
-        departing_buses = []
-        for slot in station.bus_slots
-            # println("SLOTS $(length(station.bus_slots)) ID: $(station.id)")
-            slot[1] -= 1 # Updating Cooldown
-            if slot[1] <= 0 # Cooldown is over?
-                if can_leave_station(map, station)
-                    push!(departing_buses, slot[2]) #
-                end
-            end
-        end
-        for i in 1:length(departing_buses)
-            # println("$(i)) $(length(departing_buses))")
-            departing_bus(station, departing_buses[i], map.road)
-        end
+        map.road[1,1] = 1
+        # map.previous_road[1] = 1
+        push!(map.buses, new_bus)
+        # println("Recente added bus with id $(new_bus.id)")
+    else
+        # println("Invalid Operation! First Position of road is occupied")
     end
 end
 

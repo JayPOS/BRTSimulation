@@ -35,14 +35,6 @@ mutable struct Bus <: Cell
     stop_at::Int64 
 end
 
-mutable struct Station
-    id::Int64
-    init_pos::Int64
-    ending_pos::Int64
-    bus_slots::Vector{Vector{Any}}
-    bus_cooldown::Int8
-end
-
 create_bus(id::Int64) =  Bus(id, 0, Constants.DRIVING, 1, Vector{Int8}(undef,0), -1)
 
 function reset!(b::Bus)
@@ -52,8 +44,6 @@ function reset!(b::Bus)
     b.stop_at = -1
     reverse!(b.route)
 end
-
-create_station(id::Int64, init_pos::Int64, station_length::Int64) = Station(id, init_pos, init_pos + station_length, Vector{Vector{Any}}(undef, 0), station_length + Constants.COOLDOWN)
 
 create_bus_slot(bus::Bus) = [Constants.COOLDOWN, bus]
 
